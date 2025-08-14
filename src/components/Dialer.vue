@@ -75,7 +75,7 @@ function clearInput() {
 </template>
 
 <style scoped>
-.dialer { width:100%; max-width:520px; margin:1rem 0 0; font-family:system-ui,sans-serif; text-align:center; padding:0; display:flex; flex-direction:column; flex:1; }
+.dialer { width:100%; max-width:520px; margin:0; font-family:system-ui,sans-serif; text-align:center; padding:0; display:flex; flex-direction:column; flex:1; }
 .display { background:#111; color:#0f0; padding: 1.2rem 1.6rem; border-radius: 18px; min-height: 3.6rem; display:flex; align-items:center; justify-content:center; letter-spacing:4px; font-weight:700; margin-bottom:1.25rem; font-size:1.65rem; }
 .grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.1rem; margin:0 auto .75rem; grid-auto-rows:1fr; align-items:stretch; justify-items:stretch; }
 .digit { background:#222; color:#fff; border:1px solid #333; border-radius:22px; font-size:1.8rem; cursor:pointer; transition:background .15s; touch-action:manipulation; -webkit-tap-highlight-color:transparent; display:flex; align-items:center; justify-content:center; user-select:none; height:clamp(80px, 21vw, 130px); }
