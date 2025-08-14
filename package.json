@@ -8,6 +8,9 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": "20"
+  },
   "dependencies": {
   "vue": "^3.5.18",
   "canvas-confetti": "^1.9.3"
