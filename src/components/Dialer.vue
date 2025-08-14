@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import errorVoice from '../assets/voice.mp3'
 
 // Digits 1-9 for the grid, and 0 separately centered beneath
 const gridDigits = Array.from({ length: 9 }, (_, i) => i + 1)
@@ -29,7 +28,8 @@ async function submit() {
     message.value = 'Incorrect number'
     try {
       if (!errorAudio) {
-        errorAudio = new Audio(errorVoice)
+        const voiceSrc = (await import('../assets/voice.mp3')).default
+        errorAudio = new Audio(voiceSrc)
       } else {
         // rewind if already created
         errorAudio.currentTime = 0
