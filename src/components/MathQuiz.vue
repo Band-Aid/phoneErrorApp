@@ -145,9 +145,23 @@ onUnmounted(() => {
     </div>
     
     <div class="grid">
-      <button v-for="d in [1,2,3,4,5,6,7,8,9]" :key="d" class="digit" @click="pressDigit(d)">{{ d }}</button>
+      <button
+        v-for="d in [1,2,3,4,5,6,7,8,9]"
+        :key="d"
+        class="digit"
+        @click="pressDigit(d)"
+        :disabled="isAnimating"
+      >
+        {{ d }}
+      </button>
       <div class="grid-spacer" aria-hidden="true"></div>
-      <button class="digit zero" @click="pressDigit(0)">0</button>
+      <button
+        class="digit zero"
+        @click="pressDigit(0)"
+        :disabled="isAnimating"
+      >
+        0
+      </button>
       <div class="grid-spacer" aria-hidden="true"></div>
     </div>
     
