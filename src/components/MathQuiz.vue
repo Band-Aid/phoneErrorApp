@@ -7,10 +7,13 @@ const answer = ref<string>('')
 const message = ref<string>('')
 const isAnimating = ref<boolean>(false)
 const quizElement = ref<HTMLElement | null>(null)
+const showErrorPopup = ref<boolean>(false)
 
 // Track timeouts for cleanup
 let celebrationTimeouts: number[] = []
 let questionTimeout: number | null = null
+let errorPopupTimeout: number | null = null
+let errorAudio: HTMLAudioElement | null = null
 
 // Generate random 1-digit numbers
 function generateQuestion() {
@@ -49,6 +52,32 @@ async function submit() {
   } else {
     message.value = `❌ Incorrect. Try again!`
     answer.value = ''
+    
+    // Show error popup for 1 second
+    showErrorPopup.value = true
+    if (errorPopupTimeout !== null) {
+      clearTimeout(errorPopupTimeout)
+    }
+    errorPopupTimeout = window.setTimeout(() => {
+      showErrorPopup.value = false
+      errorPopupTimeout = null
+    }, 1000)
+    
+    // Play error sound
+    try {
+      if (!errorAudio) {
+        import('../assets/voice.mp3').then(module => {
+          errorAudio = new Audio(module.default)
+          errorAudio.currentTime = 0
+          errorAudio.play().catch(() => {})
+        })
+      } else {
+        errorAudio.currentTime = 0
+        errorAudio.play().catch(() => {})
+      }
+    } catch (e) {
+      // Silently ignore audio errors
+    }
   }
 }
 
@@ -135,13 +164,16 @@ onUnmounted(() => {
     clearTimeout(questionTimeout)
     questionTimeout = null
   }
+  
+  if (errorPopupTimeout !== null) {
+    clearTimeout(errorPopupTimeout)
+    errorPopupTimeout = null
+  }
 })
 </script>
 
 <template>
   <div class="math-quiz" ref="quizElement">
-    <div class="quiz-title">Math Quiz! 🧮</div>
-    
     <div class="question-display">
       <span class="number">{{ num1 }}</span>
       <span class="operator">+</span>
@@ -180,6 +212,11 @@ onUnmounted(() => {
     <p class="message" :class="{ success: message.includes('Correct'), error: message.includes('Incorrect') }">
       {{ message }}
     </p>
+    
+    <!-- Error Popup -->
+    <div v-if="showErrorPopup" class="error-popup">
+      ❌ Network Error!
+    </div>
   </div>
 </template>
 
@@ -346,6 +383,34 @@ onUnmounted(() => {
 
 .error {
   color: #ff5555;
+}
+
+/* Error Popup */
+.error-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #ff5555;
+  color: white;
+  padding: 1.5rem 2.5rem;
+  border-radius: 16px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(255, 85, 85, 0.5);
+  z-index: 1000;
+  animation: popupAppear 0.2s ease-out;
+}
+
+@keyframes popupAppear {
+  from {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
 }
 
 /* Celebration Animations */
