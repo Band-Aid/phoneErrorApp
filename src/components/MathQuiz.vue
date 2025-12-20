@@ -24,6 +24,8 @@ const correctAnswer = computed(() => num1.value + num2.value)
 
 function pressDigit(d: number) {
   if (isAnimating.value) return
+  // Limit answer to 2 digits since max possible sum is 18 (0-9 + 0-9)
+  if (answer.value.length >= 2) return
   message.value = ''
   answer.value += d.toString()
 }
@@ -31,7 +33,7 @@ function pressDigit(d: number) {
 async function submit() {
   if (isAnimating.value || answer.value === '') return
   
-  const userAnswer = parseInt(answer.value)
+  const userAnswer = parseInt(answer.value, 10)
   
   if (userAnswer === correctAnswer.value) {
     message.value = '🎉 Correct! Great job!'
@@ -113,6 +115,10 @@ function clearAnswer() {
 }
 
 function newQuestion() {
+  if (questionTimeout !== null) {
+    clearTimeout(questionTimeout)
+    questionTimeout = null
+  }
   generateQuestion()
 }
 
@@ -166,7 +172,7 @@ onUnmounted(() => {
     </div>
     
     <div class="actions">
-      <button class="submit" @click="submit" :disabled="!answer">Submit</button>
+      <button class="submit" @click="submit" :disabled="!answer || isAnimating">Submit</button>
       <button class="clear" @click="clearAnswer" :disabled="!answer">Clear</button>
       <button class="new-question" @click="newQuestion">New ?</button>
     </div>
@@ -258,7 +264,7 @@ onUnmounted(() => {
 }
 
 .digit:active {
-  transform: scale(0.95);
+  transform: none !important;
 }
 
 .digit:hover {
