@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const num1 = ref<number>(0)
 const num2 = ref<number>(0)
 const answer = ref<string>('')
 const message = ref<string>('')
 const isAnimating = ref<boolean>(false)
+const quizElement = ref<HTMLElement | null>(null)
+
+// Track timeouts for cleanup
+let celebrationTimeouts: number[] = []
+let questionTimeout: number | null = null
 
 // Generate random 1-digit numbers
 function generateQuestion() {
@@ -35,8 +40,9 @@ async function submit() {
     await celebrateCorrectAnswer()
     
     // Generate new question after celebration
-    setTimeout(() => {
+    questionTimeout = window.setTimeout(() => {
       generateQuestion()
+      questionTimeout = null
     }, 3000)
   } else {
     message.value = `❌ Incorrect. Try again!`
@@ -47,50 +53,57 @@ async function submit() {
 async function celebrateCorrectAnswer() {
   isAnimating.value = true
   
-  // Dynamic import confetti
-  const confetti = (await import('canvas-confetti')).default
-  
-  // Random animation selection
-  const animations = ['rotate', 'shake', 'jump', 'swipe-out']
-  const randomAnimation = animations[Math.floor(Math.random() * animations.length)]
-  
-  const quizElement = document.querySelector('.math-quiz') as HTMLElement
-  
-  if (quizElement) {
-    // Apply the animation
-    quizElement.classList.add(randomAnimation)
+  try {
+    // Dynamic import confetti with error handling
+    const confetti = (await import('canvas-confetti')).default
     
-    // Fire confetti
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    })
+    // Random animation selection
+    const animations = ['rotate', 'shake', 'jump', 'swipe-out']
+    const randomAnimation = animations[Math.floor(Math.random() * animations.length)]
     
-    // Multiple confetti bursts for extra celebration
-    setTimeout(() => {
+    // Use template ref instead of querySelector
+    if (quizElement.value) {
+      // Apply the animation
+      quizElement.value.classList.add(randomAnimation)
+      
+      // Fire confetti
       confetti({
-        particleCount: 80,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0 }
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
       })
-    }, 200)
-    
-    setTimeout(() => {
-      confetti({
-        particleCount: 80,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1 }
-      })
-    }, 400)
-    
-    // Remove animation class after it completes
-    setTimeout(() => {
-      quizElement.classList.remove(randomAnimation)
-      isAnimating.value = false
-    }, 2000)
+      
+      // Multiple confetti bursts for extra celebration
+      celebrationTimeouts.push(window.setTimeout(() => {
+        confetti({
+          particleCount: 80,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 }
+        })
+      }, 200))
+      
+      celebrationTimeouts.push(window.setTimeout(() => {
+        confetti({
+          particleCount: 80,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 }
+        })
+      }, 400))
+      
+      // Remove animation class after it completes
+      celebrationTimeouts.push(window.setTimeout(() => {
+        if (quizElement.value) {
+          quizElement.value.classList.remove(randomAnimation)
+        }
+        isAnimating.value = false
+      }, 2000))
+    }
+  } catch (error) {
+    // Fallback if confetti import fails
+    console.error('Failed to load confetti:', error)
+    isAnimating.value = false
   }
 }
 
@@ -106,10 +119,21 @@ function newQuestion() {
 onMounted(() => {
   generateQuestion()
 })
+
+onUnmounted(() => {
+  // Clean up all timeouts
+  celebrationTimeouts.forEach(timeout => clearTimeout(timeout))
+  celebrationTimeouts = []
+  
+  if (questionTimeout !== null) {
+    clearTimeout(questionTimeout)
+    questionTimeout = null
+  }
+})
 </script>
 
 <template>
-  <div class="math-quiz">
+  <div class="math-quiz" ref="quizElement">
     <div class="quiz-title">Math Quiz! 🧮</div>
     
     <div class="question-display">
