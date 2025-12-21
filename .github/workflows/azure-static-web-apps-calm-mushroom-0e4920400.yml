@@ -19,6 +19,37 @@ jobs:
         with:
           submodules: true
           lfs: false
+      
+      - name: Increment Service Worker Version
+        if: github.event_name == 'push'
+        run: |
+          # Extract current version from sw.js
+          CURRENT_VERSION=$(grep -oP "const VERSION = '\K[0-9]+\.[0-9]+\.[0-9]+" public/sw.js)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Split version into components
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "New version: $NEW_VERSION"
+          
+          # Update sw.js with new version
+          sed -i "s/const VERSION = '[0-9]*\.[0-9]*\.[0-9]*'/const VERSION = '$NEW_VERSION'/" public/sw.js
+          
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Commit and push changes
+          git add public/sw.js
+          git commit -m "Auto-increment service worker version to $NEW_VERSION" || echo "No changes to commit"
+          git push || echo "No changes to push"
+      
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
