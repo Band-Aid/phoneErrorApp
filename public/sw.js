@@ -1,5 +1,6 @@
-// Basic service worker for Phone Dialer PWA
-const CACHE_NAME = 'dialer-static-v1';
+// Service worker with version checking for Phone Dialer PWA
+const VERSION = '0.0.1'; // Increment this when you release a new version
+const CACHE_NAME = `dialer-static-v${VERSION}`;
 const ASSETS = [
   '/',
   '/index.html',
@@ -7,20 +8,46 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  // Force the waiting service worker to become the active service worker
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
 });
 
 self.addEventListener('activate', (event) => {
+  // Take control of all pages immediately
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
+    ])
   );
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+  
+  // Use network-first strategy for HTML files to always check for updates
+  if (request.url.endsWith('.html') || request.url === self.registration.scope) {
+    event.respondWith(
+      fetch(request)
+        .then(resp => {
+          if (resp.ok) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then(c => c.put(request, clone));
+          }
+          return resp;
+        })
+        .catch(() => caches.match(request).then(cached => cached || caches.match('/index.html')))
+    );
+    return;
+  }
+  
+  // Use cache-first strategy for other assets
   event.respondWith(
     caches.match(request).then(cached => {
       if (cached) return cached;
@@ -34,4 +61,11 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => caches.match('/index.html'));
     })
   );
+});
+
+// Listen for messages from the client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
