@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
+type QuizMode = 'addition' | 'subtraction'
+
 const num1 = ref<number>(0)
 const num2 = ref<number>(0)
 const answer = ref<string>('')
@@ -8,6 +10,8 @@ const message = ref<string>('')
 const isAnimating = ref<boolean>(false)
 const quizElement = ref<HTMLElement | null>(null)
 const showErrorPopup = ref<boolean>(false)
+const quizMode = ref<QuizMode>('addition')
+const showHint = ref<boolean>(false)
 
 // Track timeouts for cleanup
 let celebrationTimeouts: number[] = []
@@ -17,17 +21,36 @@ let errorAudio: HTMLAudioElement | null = null
 
 // Generate random 1-digit numbers
 function generateQuestion() {
-  num1.value = Math.floor(Math.random() * 10)
-  num2.value = Math.floor(Math.random() * 10)
+  if (quizMode.value === 'subtraction') {
+    // For subtraction, ensure num1 >= num2 so result is never negative
+    num1.value = Math.floor(Math.random() * 9) + 1  // 1–9
+    num2.value = Math.floor(Math.random() * (num1.value + 1)) // 0–num1
+  } else {
+    num1.value = Math.floor(Math.random() * 10)
+    num2.value = Math.floor(Math.random() * 10)
+  }
   answer.value = ''
   message.value = ''
+  showHint.value = false
 }
 
-const correctAnswer = computed(() => num1.value + num2.value)
+function switchMode(mode: QuizMode) {
+  quizMode.value = mode
+  generateQuestion()
+}
+
+const correctAnswer = computed(() =>
+  quizMode.value === 'subtraction' ? num1.value - num2.value : num1.value + num2.value
+)
+
+const operator = computed(() => quizMode.value === 'subtraction' ? '−' : '+')
+
+// Number of squares remaining after subtraction (used in hint)
+const keptSquares = computed(() => num1.value - num2.value)
 
 function pressDigit(d: number) {
   if (isAnimating.value) return
-  // Limit answer to 2 digits since max possible sum is 18 (0-9 + 0-9)
+  // Max answer: addition = 18, subtraction = 9 — both fit in 2 digits
   if (answer.value.length >= 2) return
   message.value = ''
   answer.value += d.toString()
@@ -40,6 +63,7 @@ async function submit() {
   
   if (userAnswer === correctAnswer.value) {
     message.value = '🎉 Correct! Great job!'
+    showHint.value = false
     
     // Trigger celebration animations
     await celebrateCorrectAnswer()
@@ -52,6 +76,7 @@ async function submit() {
   } else {
     message.value = `❌ Incorrect. Try again!`
     answer.value = ''
+    showHint.value = true
     
     // Show error popup for 1 second
     showErrorPopup.value = true
@@ -174,12 +199,55 @@ onUnmounted(() => {
 
 <template>
   <div class="math-quiz" ref="quizElement">
+    <!-- Mode selector -->
+    <div class="mode-selector">
+      <button
+        class="mode-btn"
+        :class="{ active: quizMode === 'addition' }"
+        @click="switchMode('addition')"
+      >➕ Addition</button>
+      <button
+        class="mode-btn"
+        :class="{ active: quizMode === 'subtraction' }"
+        @click="switchMode('subtraction')"
+      >➖ Subtraction</button>
+    </div>
+
     <div class="question-display">
       <span class="number">{{ num1 }}</span>
-      <span class="operator">+</span>
+      <span class="operator">{{ operator }}</span>
       <span class="number">{{ num2 }}</span>
       <span class="equals">=</span>
       <span class="answer-box">{{ answer || '?' }}</span>
+    </div>
+
+    <!-- Visual hint shown after a wrong answer -->
+    <div v-if="showHint" class="hint-area" aria-label="Visual hint">
+      <template v-if="quizMode === 'addition'">
+        <div class="squares-group group-a">
+          <div v-for="i in num1" :key="'a'+i" class="sq sq-green"></div>
+        </div>
+        <span class="hint-op">+</span>
+        <div class="squares-group group-b">
+          <div v-for="i in num2" :key="'b'+i" class="sq sq-pink"></div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="squares-group">
+          <!-- kept squares (result) -->
+          <div
+            v-for="i in keptSquares"
+            :key="'keep'+i"
+            class="sq sq-green"
+          ></div>
+          <!-- disappearing squares -->
+          <div
+            v-for="i in num2"
+            :key="'gone'+i"
+            class="sq sq-red sq-gone"
+          ></div>
+        </div>
+      </template>
     </div>
     
     <div class="grid">
@@ -240,6 +308,38 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
+/* Mode selector */
+.mode-selector {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 0.55rem 0.8rem;
+  border: 2px solid #444;
+  border-radius: 20px;
+  background: #222;
+  color: #aaa;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+
+.mode-btn.active {
+  background: #42b883;
+  color: #fff;
+  border-color: #42b883;
+}
+
+.mode-btn:hover:not(.active) {
+  background: #333;
+  color: #fff;
+}
+
 .question-display {
   background: #111;
   color: #fff;
@@ -271,6 +371,73 @@ onUnmounted(() => {
   color: #8be9fd;
   min-width: 3rem;
   text-align: center;
+}
+
+/* Visual hint */
+.hint-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+  min-height: 2.5rem;
+  animation: hintAppear 0.3s ease-out;
+}
+
+@keyframes hintAppear {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.squares-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  max-width: 220px;
+}
+
+.hint-op {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #ff79c6;
+  margin: 0 0.2rem;
+}
+
+.sq {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+.sq-green {
+  background: #42b883;
+  box-shadow: 0 2px 6px rgba(66, 184, 131, 0.5);
+}
+
+.sq-pink {
+  background: #ff79c6;
+  box-shadow: 0 2px 6px rgba(255, 121, 198, 0.5);
+}
+
+.sq-red {
+  background: #ff5555;
+  box-shadow: 0 2px 6px rgba(255, 85, 85, 0.5);
+}
+
+/* Disappearing animation for subtracted squares */
+.sq-gone {
+  animation: disappear 1.2s ease-in-out infinite;
+}
+
+@keyframes disappear {
+  0%   { opacity: 1;   transform: scale(1); }
+  40%  { opacity: 0.2; transform: scale(1.3) rotate(15deg); }
+  60%  { opacity: 0;   transform: scale(0.4) rotate(-10deg); }
+  80%  { opacity: 0;   transform: scale(0.4); }
+  100% { opacity: 1;   transform: scale(1); }
 }
 
 .grid {
@@ -464,6 +631,10 @@ onUnmounted(() => {
   .math-quiz.jump,
   .math-quiz.swipe-out {
     animation: none;
+  }
+  .sq-gone {
+    animation: none;
+    opacity: 0.35;
   }
 }
 
