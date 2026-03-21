@@ -11,8 +11,6 @@ const isAnimating = ref<boolean>(false)
 const quizElement = ref<HTMLElement | null>(null)
 const showErrorPopup = ref<boolean>(false)
 const quizMode = ref<QuizMode>('addition')
-const showHint = ref<boolean>(false)
-
 // Track timeouts for cleanup
 let celebrationTimeouts: number[] = []
 let questionTimeout: number | null = null
@@ -31,7 +29,6 @@ function generateQuestion() {
   }
   answer.value = ''
   message.value = ''
-  showHint.value = false
 }
 
 function switchMode(mode: QuizMode) {
@@ -44,9 +41,6 @@ const correctAnswer = computed(() =>
 )
 
 const operator = computed(() => quizMode.value === 'subtraction' ? '−' : '+')
-
-// Number of squares remaining after subtraction (used in hint)
-const keptSquares = computed(() => num1.value - num2.value)
 
 function pressDigit(d: number) {
   if (isAnimating.value) return
@@ -63,7 +57,6 @@ async function submit() {
   
   if (userAnswer === correctAnswer.value) {
     message.value = '🎉 Correct! Great job!'
-    showHint.value = false
     
     // Trigger celebration animations
     await celebrateCorrectAnswer()
@@ -76,7 +69,6 @@ async function submit() {
   } else {
     message.value = `❌ Incorrect. Try again!`
     answer.value = ''
-    showHint.value = true
     
     // Show error popup for 1 second
     showErrorPopup.value = true
@@ -214,40 +206,20 @@ onUnmounted(() => {
     </div>
 
     <div class="question-display">
-      <span class="number">{{ num1 }}</span>
+      <div class="squares-group inline-squares">
+        <div v-for="i in num1" :key="'a'+i" class="sq sq-green"></div>
+      </div>
       <span class="operator">{{ operator }}</span>
-      <span class="number">{{ num2 }}</span>
+      <div class="squares-group inline-squares">
+        <div
+          v-for="i in num2"
+          :key="'b'+i"
+          class="sq"
+          :class="quizMode === 'addition' ? 'sq-pink' : 'sq-red sq-gone'"
+        ></div>
+      </div>
       <span class="equals">=</span>
       <span class="answer-box">{{ answer || '?' }}</span>
-    </div>
-
-    <!-- Visual hint shown after a wrong answer -->
-    <div v-if="showHint" class="hint-area" aria-label="Visual hint">
-      <template v-if="quizMode === 'addition'">
-        <div class="squares-group group-a">
-          <div v-for="i in num1" :key="'a'+i" class="sq sq-green"></div>
-        </div>
-        <span class="hint-op">+</span>
-        <div class="squares-group group-b">
-          <div v-for="i in num2" :key="'b'+i" class="sq sq-pink"></div>
-        </div>
-      </template>
-      <template v-else>
-        <div class="squares-group">
-          <!-- kept squares (result) -->
-          <div
-            v-for="i in keptSquares"
-            :key="'keep'+i"
-            class="sq sq-green"
-          ></div>
-          <!-- disappearing squares -->
-          <div
-            v-for="i in num2"
-            :key="'gone'+i"
-            class="sq sq-red sq-gone"
-          ></div>
-        </div>
-      </template>
     </div>
     
     <div class="grid">
@@ -343,20 +315,17 @@ onUnmounted(() => {
 .question-display {
   background: #111;
   color: #fff;
-  padding: 1.5rem 1.6rem;
+  padding: 1rem 1.2rem;
   border-radius: 18px;
   min-height: 4rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.7rem;
   margin-bottom: 1.25rem;
   font-size: 2.5rem;
   font-weight: 700;
-}
-
-.number {
-  color: #42b883;
+  flex-wrap: wrap;
 }
 
 .operator {
@@ -373,36 +342,17 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* Visual hint */
-.hint-area {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.85rem;
-  min-height: 2.5rem;
-  animation: hintAppear 0.3s ease-out;
-}
-
-@keyframes hintAppear {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
+/* Visual hint squares */
 .squares-group {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
   justify-content: center;
-  max-width: 220px;
+  max-width: 130px;
 }
 
-.hint-op {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #ff79c6;
-  margin: 0 0.2rem;
+.inline-squares {
+  max-width: 130px;
 }
 
 .sq {
